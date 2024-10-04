@@ -1,0 +1,32 @@
+{
+  "name": "django-navigator",
+  "displayName": "Django Navigator",
+  "description": "Navigate Django URLs from templates.",
+  "version": "0.0.1",
+  "publisher": "seunome",
+  "engines": {
+    "vscode": "^1.50.0"
+  },
+  "activationEvents": [
+    "onCommand:django-navigator.goToUrl"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "django-navigator.goToUrl",
+        "title": "Go to Django URL"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "typescript": "^4.0.0",
+    "vscode": "^1.1.36"
+  }
+}
+

@@ -1,0 +1,40 @@
+# Compiled output
+out/
+dist/
+
+# Node.js dependencies
+node_modules/
+
+# VSCode
+.vscode/
+.vscode-test/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Compiled JavaScript output
+*.js
+*.jsx
+
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+
+# Coverage
+coverage/
+*.lcov
+
+# Test files
+*.cover
+*.coverage
+*.hypothesis/
+.pytest_cache/
+
+# VSIX package
+*.vsix
+
+# Ignore any generated documentation files (optional)
+docs/build/
