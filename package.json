@@ -2,7 +2,7 @@
   "name": "django-navigator",
   "displayName": "Django Navigator",
   "description": "Navigate Django URLs from templates.",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "publisher": "KayoRiccelo",
   "icon": "imagens/django_navigator_logo.png",
   "repository": {
@@ -17,11 +17,18 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "languages": [
+        {
+            "id": "html",
+            "extensions": [".html", ".djhtml"],
+            "configuration": "./language-configuration.json"
+        }
+    ],
     "commands": [
-      {
-        "command": "django-navigator.goToUrl",
-        "title": "Go to Django URL"
-      }
+        {
+            "command": "django-navigator.goToUrl",
+            "title": "Go to Django URL"
+        }
     ]
   },
   "scripts": {

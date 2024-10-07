@@ -21,11 +21,6 @@ To install the extension, follow these steps:
 3. Search for "Django Navigator".
 4. Click on "Install".
 
-### Prerequisites
-
-- Python 3.8 or higher.
-- Django 4.2 or higher.
-
 ## Usage
 
 1. Open a Django template file where you have the `{% url %}` tag.

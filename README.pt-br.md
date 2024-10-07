@@ -21,11 +21,6 @@ Para instalar a extensão, siga estas etapas:
 3. Pesquise por "Django Navigator".
 4. Clique em "Instalar".
 
-### Pré-requisitos
-
-- Python 3.8 ou superior.
-- Django 4.2 ou superior.
-
 ## Uso
 
 1. Abra um arquivo de template Django onde você tenha a tag `{% url %}`.
