@@ -1,7 +1,7 @@
 # Extensão Django Navigator para VSCode
 
-[![en](https://img.shields.io/badge/language-en-blue)](README.md) 
-[![ptBr](https://img.shields.io/badge/language-pt--BR-green)](README.pt-br.md)
+[![en](https://img.shields.io/badge/lang-en-blue)](README.md) 
+[![ptBr](https://img.shields.io/badge/lang-pt--BR-green)](README.pt-br.md)
 
 ## Descrição
 

@@ -1,9 +1,9 @@
 # Django Navigator Extension for VSCode
 
-[![ptBr](https://img.shields.io/badge/language-pt--BR-green)](README.pt-br.md) 
-[![en](https://img.shields.io/badge/language-en-blue)](README.md)
+[![ptBr](https://img.shields.io/badge/lang-pt--BR-green)](README.pt-br.md) 
+[![en](https://img.shields.io/badge/lang-en-blue)](README.md)
 
-## Description
+## Overview
 
 The **Django Navigator** extension for Visual Studio Code is a useful tool that allows Django developers to quickly navigate between URLs defined in `urls.py` files within their project. By using this extension, you can easily find and highlight the definition of a URL corresponding to a `{% url %}` tag in your code, improving your efficiency when working on Django projects.
 

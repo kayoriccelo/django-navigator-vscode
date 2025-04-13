@@ -1,90 +1,118 @@
-
-import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        import * as vscode from 'vscode';
+import { promises as fs } from 'fs';
 
 /**
- * Função chamada quando a extensão é ativada.
+ * Represents extracted information from a Django urls.py file.
+ * - file: Path to the urls.py file
+ * - appName: Django app name, if defined using app_name
+ * - namespaces: List of namespaces defined via include(..., namespace='...')
+ * - names: List of route names defined using name='...'
  */
-export function activate(context: vscode.ExtensionContext) {
-    let disposable = vscode.commands.registerCommand('django-navigator.goToUrl', () => {
-        const editor = vscode.window.activeTextEditor;
+type UrlInfo = {
+    file: vscode.Uri;
+    appName?: string;
+    namespaces: string[];
+    names: string[];
+};
 
-        if (editor) {
-            const document = editor.document;
-            const cursorPosition = editor.selection.active;
-            const currentLineText = document.lineAt(cursorPosition.line).text.trim();
+/**
+ * Searches all urls.py files in the workspace and attempts to resolve the given namespace path.
+ *
+ * @param namespaces - Array of namespace segments from a Django URL tag (e.g., ['app', 'route'])
+ * @returns A promise that resolves when the corresponding URL definition is found and highlighted
+ */
+async function searchInFiles(namespaces: any) {
+    const files = await vscode.workspace.findFiles('**/urls.py');
+    const urlFilesMap: Record<string, UrlInfo[]> = {};
 
-            // Regex para capturar a tag URL
-            const urlTagRegex = /{% url '([^']+)'(?:\s+([^%]+))? %}/;
-            const match = urlTagRegex.exec(currentLineText);
+    for (const file of files) {
+        try {
+            const data = await fs.readFile(file.fsPath, 'utf8');
 
-            if (match) {
-                const urlName = match[1];
-                const namespaces = urlName.split(':');
+            const appNameMatch = data.match(/app_name\s*=\s*['"]([^'"]+)['"]/);
+            const includeNamespaceMatches = [...data.matchAll(/include\([^)]*namespace\s*=\s*['"]([^'"]+)['"]/g)];
+            const namedUrlMatches = [...data.matchAll(/name\s*=\s*['"]([^'"]+)['"]/g)];
 
-                // Procura todos os arquivos urls.py no projeto
-                vscode.workspace.findFiles('**/urls.py').then(files => {
-                    if (files.length > 0) {
-                        let foundUrlFile: vscode.Uri | null = null;
+            const appName = appNameMatch?.[1];
+            const namespacesFound = includeNamespaceMatches.map(m => m[1]);
+            const names = namedUrlMatches.map(m => m[1]);
 
-                        // Itera sobre cada arquivo urls.py
-                        const filePromises = files.map(file => {
-                            return new Promise<void>((resolve) => {
-                                fs.readFile(file.fsPath, 'utf8', (err, data) => {
-                                    if (err) {
-                                        vscode.window.showErrorMessage(`Erro ao ler o arquivo: ${file.fsPath}`);
-                                        resolve();
-                                        return;
-                                    }
+            if (appName || namespacesFound.length || names.length) {
+                const info: UrlInfo = {
+                    file,
+                    appName,
+                    namespaces: namespacesFound,
+                    names
+                };
 
-                                    const dirPath = path.dirname(file.fsPath);
+                const keys = [appName, ...namespacesFound].filter(Boolean) as string[];
 
-                                    // Verifica se o arquivo contém o namespace correspondente ou a URL
-                                    let foundNamespace = namespaces.every((namespace, index) => {
-                                        const isLastNamespace = index === namespaces.length - 1;
-                                        return (
-                                            (isLastNamespace && data.includes(`name='${namespace}'`)) ||
-                                            (data.includes(`app_name = '${namespace}'`) || dirPath.includes(namespace.replace(/_/g, '-')))
-                                        );
-                                    });
-
-                                    if (foundNamespace) {
-                                        foundUrlFile = file;
-                                    }
-
-                                    resolve();
-                                });
-                            });
-                        });
-
-                        // Espera até que todos os arquivos sejam verificados
-                        Promise.all(filePromises).then(() => {
-                            if (foundUrlFile) {
-                                vscode.workspace.openTextDocument(foundUrlFile).then(doc => {
-                                    vscode.window.showTextDocument(doc).then(editor => {
-                                        highlightUrlInFile(editor, urlName);
-                                    });
-                                });
-                            } else {
-                                vscode.window.showErrorMessage(`Nenhuma URL correspondente encontrada para '${urlName}'.`);
-                            }
-                        });
-                    } else {
-                        vscode.window.showErrorMessage('Arquivo urls.py não encontrado em nenhuma pasta.');
+                for (const key of keys) {
+                    if (!urlFilesMap[key]) {
+                        urlFilesMap[key] = [];
                     }
-                });
-            } else {
-                vscode.window.showErrorMessage('Selecione uma tag URL válida.');
+                    urlFilesMap[key].push(info);
+                }
             }
+        } catch (err) {
+            console.error(`Error reading ${file.fsPath}:`, err);
         }
-    });
+    }
 
-    context.subscriptions.push(disposable);
+    const location = resolveUrlPath(namespaces, urlFilesMap);
+    return location ?? null;
 }
 
 /**
- * Função para destacar a linha que contém a URL no editor.
+ * Resolves the full URL path based on namespaces and names found in urls.py files.
+ * If found, it opens and highlights the corresponding line in the file.
+ *
+ * @param namespaces - The namespace path as an array of strings
+ * @param urlFilesMap - A map of namespaces/app names to their corresponding UrlInfo entries
+ */
+function resolveUrlPath(namespaces: string[], urlFilesMap: Record<string, UrlInfo[]>) {
+    let currentInfos = urlFilesMap[namespaces[0]];
+
+    if (!currentInfos || currentInfos.length === 0) {
+        vscode.window.showErrorMessage(`Namespace or app_name '${namespaces[0]}' not found.`);
+        return;
+    }
+
+    for (let i = 1; i < namespaces.length; i++) {
+        const ns = namespaces[i];
+
+        const possibleMatches = currentInfos.filter(info =>
+            info.names.includes(ns) || info.namespaces.includes(ns)
+        );
+
+        if (i === namespaces.length - 1) {
+            const match = possibleMatches.find(info => info.names.includes(ns));
+            if (match) {
+                vscode.workspace.openTextDocument(match.file).then(doc => {
+                    vscode.window.showTextDocument(doc).then(editor => {
+                        highlightUrlInFile(editor, ns);
+                    });
+                });
+                return;
+            }
+        }
+
+        currentInfos = urlFilesMap[ns];
+
+        if (!currentInfos || currentInfos.length === 0) {
+            vscode.window.showErrorMessage(`Intermediate namespace '${ns}' not found.`);
+            return;
+        }
+    }
+
+    vscode.window.showErrorMessage(`Failed to resolve complete URL path.`);
+}
+
+/**
+ * Highlights the line in the file where the URL with the specified name is defined.
+ *
+ * @param editor - The VS Code text editor instance
+ * @param urlName - The final segment of the Django URL name to highlight
  */
 function highlightUrlInFile(editor: vscode.TextEditor, urlName: string) {
     const document = editor.document;
@@ -95,7 +123,6 @@ function highlightUrlInFile(editor: vscode.TextEditor, urlName: string) {
         for (let line = 0; line < document.lineCount; line++) {
             const textLine = document.lineAt(line);
 
-            // Verifica se a linha contém o nome do namespace ou o nome da URL
             if (isAppName || textLine.text.includes(namespaces[i])) {
                 isAppName = true;
 
@@ -107,4 +134,69 @@ function highlightUrlInFile(editor: vscode.TextEditor, urlName: string) {
             }
         }
     }
+}
+
+/**
+ * Activates the extension and registers commands and providers.
+ *
+ * @param context - The extension context provided by VS Code
+ */
+export function activate(context: vscode.ExtensionContext) {
+    // Command available in the Command Palette: "Django Navigator: Go to URL"
+    const disposable = vscode.commands.registerCommand('django-navigator.goToUrl', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+
+        const document = editor.document;
+        const cursorPosition = editor.selection.active;
+        const currentLineText = document.lineAt(cursorPosition.line).text.trim();
+
+        // Regex to match Django URL tag: {% url 'namespace:name' param %}
+        const urlTagRegex = /{% url '([^']+)'(?:\s+([^%]+))? %}/;
+        const match = urlTagRegex.exec(currentLineText);
+
+        if (!match) {
+            vscode.window.showErrorMessage("Please select a valid Django URL tag. Example: {% url 'app:name' %}");
+            return;
+        }
+
+        const urlName = match[1];
+        const namespaces = urlName.split(':');
+
+        searchInFiles(namespaces);
+    });
+
+    context.subscriptions.push(disposable);
+
+    // Enables navigation to URL definitions via Ctrl+Click in HTML or Django templates
+    const provider = vscode.languages.registerDefinitionProvider(
+        [
+            { scheme: 'file', language: 'html' },
+            { scheme: 'file', language: 'django-html' }
+        ],
+        {
+            async provideDefinition(document, position, token) {
+                const editor = vscode.window.activeTextEditor;
+
+                if (!editor || editor.document.uri.toString() !== document.uri.toString()) {
+                    return null;
+                }
+
+                const lineText = document.lineAt(position.line).text.trim();
+                const urlTagRegex = /{% url '([^']+)'(?:\s+([^%]+))? %}/;
+                const match = urlTagRegex.exec(lineText);
+
+                if (!match) {
+                    return;
+                }
+
+                const urlName = match[1];
+                const namespaces = urlName.split(':');
+
+                return await searchInFiles(namespaces);
+            }
+        }
+    );
+
+    context.subscriptions.push(provider);
 }
